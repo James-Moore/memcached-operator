@@ -12,7 +12,7 @@ endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= jamesjohnmoore/memcached-operator:1.0
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -41,7 +41,7 @@ test: generate fmt vet manifests
 	bash ${ENVTEST_ASSETS_DIR}/setup-envtest.sh setup_envtest_env ${ENVTEST_ASSETS_DIR}
 	go test ./... -coverprofile cover.out
 
-# Build manager binary
+# Build mka binary
 manager: generate fmt vet
 	go build -o bin/manager main.go
 
@@ -131,6 +131,7 @@ bundle: manifests
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
+
 .PHONY: mydev
 mydev: docker-build docker-push install deploy
 	kubectl apply -f config/samples/cache_v1_memcached.yaml
@@ -138,5 +139,5 @@ mydev: docker-build docker-push install deploy
 
 .PHONY: myclean
 myclean:
-	kubectl delete -f config/samples/cache_v1_memcached.yaml
-	kustomize build config/default | kubectl delete -f -
+	kubectl delete --ignore-not-found -f config/samples/cache_v1_memcached.yaml
+	kustomize build config/default | kubectl delete --ignore-not-found -f -
