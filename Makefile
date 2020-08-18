@@ -130,3 +130,13 @@ bundle: manifests
 .PHONY: bundle-build
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+.PHONY: mydev
+mydev: docker-build docker-push install deploy
+	kubectl apply -f config/samples/cache_v1_memcached.yaml
+	kubectl logs deployment.apps/memcached-operator-controller-manager -n memcached-operator-system -c manager
+
+.PHONY: myclean
+myclean:
+	kubectl delete -f config/samples/cache_v1_memcached.yaml
+	kustomize build config/default | kubectl delete -f -
