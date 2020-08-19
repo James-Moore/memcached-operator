@@ -12,7 +12,7 @@ endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= localhost:32000/memcached-operator:1.0
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -41,7 +41,7 @@ test: generate fmt vet manifests
 	bash ${ENVTEST_ASSETS_DIR}/setup-envtest.sh setup_envtest_env ${ENVTEST_ASSETS_DIR}
 	go test ./... -coverprofile cover.out
 
-# Build manager binary
+# Build mka binary
 manager: generate fmt vet
 	go build -o bin/manager main.go
 
@@ -130,3 +130,30 @@ bundle: manifests
 .PHONY: bundle-build
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+.PHONY: setnamespace2default
+setnamespace2default:
+	cd config/default/ && kustomize edit set namespace "default" && cd ../..
+
+.PHONY: mydev
+mydev: generate manifests install setnamespace2default docker-build docker-push deploy
+	kubectl apply -f ./config/samples/cache_v1_memcached.yaml
+#	kubectl logs memcached-operator-controller-manager-7c8ddcb78c-9vfpq manager
+
+.PHONY: myclean
+myclean:
+	@kubectl delete --ignore-not-found=true -f config/samples/cache_v1_memcached.yaml 2> /dev/null | true
+	@kustomize build config/default | kubectl delete --ignore-not-found -f -
+
+#	@docker system prune -af
+
+	@dockerlist=$$(docker images -a | grep -E 'none|memcached' | awk '{print $$3}'); \
+	for i in $${dockerlist} ; do  \
+		docker rmi -f $${i} ; \
+	done
+
+	@ctrlist=$$(microk8s.ctr images list | grep memcached | awk '{print $$1}'); \
+	for i in $${ctrlist} ; do  \
+		microk8s.ctr images rm $${i} ; \
+	done
+	@echo "Clean Complete"
